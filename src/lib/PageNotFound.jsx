@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom';
-import { base44 } from '@/api/client.js';
 import { useQuery } from '@tanstack/react-query';
+import { getCurrentUser } from './biotechService';
 
 
 export default function PageNotFound({}) {
@@ -11,7 +11,7 @@ export default function PageNotFound({}) {
         queryKey: ['user'],
         queryFn: async () => {
             try {
-                const user = await base44.auth.me();
+                const user = await getCurrentUser();
                 return { user, isAuthenticated: true };
             } catch (error) {
                 return { user: null, isAuthenticated: false };

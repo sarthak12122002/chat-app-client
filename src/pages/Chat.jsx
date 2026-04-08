@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { base44 } from '@/api/client.js';
 import { processQuery } from '../lib/biotechService';
 import ChatMessage from '../components/chat/ChatMessage';
 import ChatInput from '../components/chat/ChatInput';
@@ -38,15 +37,15 @@ export default function Chat() {
     setIsLoading(false);
 
     // Save to history
-    base44.entities.ChatQuery.create({
-      question,
-      generated_sql: result.generated_sql || '',
-      response_text: result.response_text || '',
-      visualization_type: result.visualization_type || '',
-      result_data: JSON.stringify(result.result_data || []),
-      is_saved: false,
-      status: result.status,
-    }).catch(() => {});
+    // base44.entities.ChatQuery.create({
+    //   question,
+    //   generated_sql: result.generated_sql || '',
+    //   response_text: result.response_text || '',
+    //   visualization_type: result.visualization_type || '',
+    //   result_data: JSON.stringify(result.result_data || []),
+    //   is_saved: false,
+    //   status: result.status,
+    // }).catch(() => {});
   };
 
   return (

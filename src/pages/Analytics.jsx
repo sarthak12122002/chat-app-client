@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { base44 } from '@/api/client.js';
 import { BarChart3, Loader2, Database, MessageSquare, CheckCircle, XCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { getQueryHistory } from '@/lib/biotechService';
 
 const COLORS = ['hsl(252, 85%, 60%)', 'hsl(172, 66%, 50%)', 'hsl(45, 93%, 58%)', 'hsl(340, 75%, 55%)', 'hsl(200, 80%, 55%)'];
 
@@ -11,7 +11,7 @@ export default function Analytics() {
 
   useEffect(() => {
     (async () => {
-      const data = await base44.entities.ChatQuery.list('-created_date', 200);
+      const data = await getQueryHistory(100);
       setQueries(data);
       setLoading(false);
     })();

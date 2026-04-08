@@ -11,6 +11,7 @@ import History from './pages/History';
 import Saved from './pages/Saved';
 import Analytics from './pages/Analytics';
 import { cn } from '@/lib/utils'
+import Login from '@/pages/Login';
 console.log('Alias working!')
 
 const AuthenticatedApp = () => {
@@ -39,6 +40,7 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
+      <Route path="/login" element={<Login />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Chat />} />
         <Route path="/history" element={<History />} />

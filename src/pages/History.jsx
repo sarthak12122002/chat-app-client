@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { base44 } from '@/api/client.js';
+import { getQueryHistory, toggleSaveQuery, deleteQuery } from '@/lib/biotechService';
 import { Clock, Search, Bookmark, BookmarkCheck, Trash2, Loader2, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ export default function History() {
   const [queries, setQueries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadQueries();
@@ -17,19 +18,54 @@ export default function History() {
 
   const loadQueries = async () => {
     setLoading(true);
-    const data = await base44.entities.ChatQuery.list('-created_date', 100);
-    setQueries(data);
-    setLoading(false);
+    setError(null);
+    try {
+      const data = await getQueryHistory(100);
+      setQueries(data);
+    } catch (err) {
+      console.error('Failed to load query history:', err);
+      setError('Failed to load query history. Please try again.');
+      setQueries([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const toggleSave = async (query) => {
-    await base44.entities.ChatQuery.update(query.id, { is_saved: !query.is_saved });
-    setQueries(prev => prev.map(q => q.id === query.id ? { ...q, is_saved: !q.is_saved } : q));
+  const handleToggleSave = async (query) => {
+    // Optimistic update
+    setQueries(prev => prev.map(q => 
+      q.id === query.id ? { ...q, is_saved: !q.is_saved } : q
+    ));
+
+    try {
+      await toggleSaveQuery(query.id, query.is_saved);
+    } catch (err) {
+      console.error('Failed to toggle save:', err);
+      // Revert optimistic update on error
+      setQueries(prev => prev.map(q => 
+        q.id === query.id ? { ...q, is_saved: query.is_saved } : q
+      ));
+      alert('Failed to update. Please try again.');
+    }
   };
 
-  const deleteQuery = async (id) => {
-    await base44.entities.ChatQuery.delete(id);
+  const handleDeleteQuery = async (id) => {
+    if (!confirm('Are you sure you want to delete this query?')) {
+      return;
+    }
+
+    // Optimistic delete
+    const previousQueries = queries;
     setQueries(prev => prev.filter(q => q.id !== id));
+
+    try {
+      await deleteQuery(id);
+    } catch (err) {
+      console.error('Failed to delete query:', err);
+      // Revert on error
+      setQueries(previousQueries);
+      alert('Failed to delete. Please try again.');
+    }
   };
 
   const filtered = queries.filter(q =>
@@ -70,6 +106,23 @@ export default function History() {
             />
           </div>
 
+          {/* ============================================================================
+              NEW: Added error state display
+             ============================================================================ */}
+          {error && (
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-4 text-sm">
+              {error}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="ml-2"
+                onClick={loadQueries}
+              >
+                Retry
+              </Button>
+            </div>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -78,7 +131,12 @@ export default function History() {
             <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
               <MessageSquare className="h-10 w-10 text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">No queries found</p>
-              <p className="text-xs text-muted-foreground/60">Start a conversation to see your history here</p>
+              <p className="text-xs text-muted-foreground/60">
+                {search 
+                  ? 'Try a different search term' 
+                  : 'Start a conversation to see your history here'
+                }
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -96,19 +154,51 @@ export default function History() {
                       <div className="flex items-center gap-3 mt-2">
                         {statusBadge(q.status)}
                         {q.visualization_type && (
-                          <span className="text-[10px] text-muted-foreground/70">{q.visualization_type.replace('_', ' ')}</span>
+                          <span className="text-[10px] text-muted-foreground/70">
+                            {q.visualization_type.replace('_', ' ')}
+                          </span>
                         )}
-                        <span className="text-[10px] text-muted-foreground/50">{moment(q.created_date).fromNow()}</span>
+                        <span className="text-[10px] text-muted-foreground/50">
+                          {moment(q.created_date).fromNow()}
+                        </span>
+                        {/* ============================================================================
+                            NEW: Display token usage if available
+                           ============================================================================ */}
+                        {q.total_tokens > 0 && (
+                          <span className="text-[10px] text-muted-foreground/50">
+                            {q.total_tokens.toLocaleString()} tokens
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleSave(q)}>
+                      {/* ============================================================================
+                          CHANGED: onClick handler
+                          OLD: onClick={() => toggleSave(q)}
+                          NEW: onClick={() => handleToggleSave(q)}
+                         ============================================================================ */}
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8" 
+                        onClick={() => handleToggleSave(q)}
+                      >
                         {q.is_saved
                           ? <BookmarkCheck className="h-3.5 w-3.5 text-primary" />
                           : <Bookmark className="h-3.5 w-3.5 text-muted-foreground" />
                         }
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => deleteQuery(q.id)}>
+                      {/* ============================================================================
+                          CHANGED: onClick handler
+                          OLD: onClick={() => deleteQuery(q.id)}
+                          NEW: onClick={() => handleDeleteQuery(q.id)}
+                         ============================================================================ */}
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive" 
+                        onClick={() => handleDeleteQuery(q.id)}
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>

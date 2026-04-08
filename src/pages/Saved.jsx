@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { base44 } from '@/api/client.js';
 import { Bookmark, Loader2, BookmarkX, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import moment from 'moment';
+import { deleteQuery, getSavedQueries } from '@/lib/biotechService';
 
 export default function Saved() {
   const [queries, setQueries] = useState([]);
@@ -14,13 +14,13 @@ export default function Saved() {
 
   const loadSaved = async () => {
     setLoading(true);
-    const data = await base44.entities.ChatQuery.filter({ is_saved: true }, '-created_date', 100);
+    const data = await getSavedQueries(100);
     setQueries(data);
     setLoading(false);
   };
 
   const unsave = async (id) => {
-    await base44.entities.ChatQuery.update(id, { is_saved: false });
+    await deleteQuery(id);
     setQueries(prev => prev.filter(q => q.id !== id));
   };
 
