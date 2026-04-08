@@ -426,12 +426,14 @@ export async function processQuery(question) {
  */
 export function getSuggestedQueries() {
   return [
-    "Show me top 5 companies by number of employees",
-    "How many clinical trials are in each phase?",
-    "What is the total R&D spending across all companies?",
-    "Top 10 most funded biotech companies",
-    "Show me all active Phase 3 clinical trials",
-    "What's the distribution of molecule types in the pipeline?",
+      "Show me the top 5 biotech companies by market cap",
+      "How many clinical trials are in each phase?",
+      "What is the total R&D spending across all companies?",
+      "Which therapeutic areas have the most pipeline drugs?",
+      "Which companies are publicly listed vs. privately held?",
+      "Show me all active Phase 3 clinical trials",
+      "What's the distribution of molecule types in the pipeline?",
+      "What assets target mitochondrial dysfunction in biotech?"
   ];
 }
 
