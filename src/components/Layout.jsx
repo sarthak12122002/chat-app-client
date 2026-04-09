@@ -9,23 +9,6 @@ export default function Layout() {
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
         <AppSidebar />
-        
-          {user && (
-            <div className="space-y-2 p-4">
-              <p className="text-sm text-muted-foreground">
-                {user.email}
-              </p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full"
-                onClick={() => logout(true)}
-              >
-                Logout
-              </Button>
-            </div>
-          )}
-
       {/* Main content */}
       <main className="flex-1 overflow-hidden">
         <Outlet />

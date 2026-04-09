@@ -90,7 +90,9 @@ export async function processQuery(question) {
 
     // Call the backend API
     const response = await apiClient.post('/chat/query', {
-      question
+      question,
+      history,      // Conversation context
+      //session_id: sessionId, // Link to session
     });
 
     return {
@@ -139,6 +141,37 @@ export async function processQuery(question) {
       generated_sql: null,
       chart_config: null,
     };
+  }
+}
+
+/**
+ * OPTIONAL: Fetch all sessions for history sidebar
+ * @returns {Promise<Array>} List of sessions
+ */
+export async function fetchSessions() {
+  try {
+    const response = await apiClient.get('/sessions');
+    
+    return response?.sessions; // Array of { id, title, created_at, query_count }
+  } catch (error) {
+    console.error('Failed to fetch sessions:', error);
+    return [];
+  }
+}
+
+/**
+ * OPTIONAL: Delete a session
+ * @param {string} sessionId 
+ * @returns {Promise<boolean>}
+ */
+export async function deleteSession(sessionId) {
+  try {
+    const response = await apiClient.delete(`/sessions/${sessionId}`);
+    
+    return response.ok;
+  } catch (error) {
+    console.error('Failed to delete session:', error);
+    return false;
   }
 }
 
