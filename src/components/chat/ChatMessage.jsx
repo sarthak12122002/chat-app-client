@@ -12,7 +12,7 @@ export default function ChatMessage({ message, isLatest }) {
 
   return (
     <div className={cn("animate-fade-in", isUser ? "flex justify-end" : "flex justify-start")}>
-      <div className={cn("flex gap-3 max-w-[90%] md:max-w-[80%]", isUser && "flex-row-reverse")}>
+      <div className={cn("flex gap-3 max-w-[90%] md:max-w-[85%]", isUser && "flex-row-reverse")}>
         {/* Avatar */}
         <div className={cn(
           "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-1",
@@ -30,7 +30,7 @@ export default function ChatMessage({ message, isLatest }) {
           {/* Text bubble */}
           {message.content && (
             <div className={cn(
-              "rounded-2xl px-4 py-3",
+              "rounded-2xl px-4 py-3 max-w-full",
               isUser
                 ? "bg-primary text-primary-foreground"
                 : isRejected
@@ -52,11 +52,16 @@ export default function ChatMessage({ message, isLatest }) {
 
           {/* Visualization */}
           {!isUser && message.result_data && message.visualization_type && (
-            <div className="w-full">
+            <div className="w-full max-w-full overflow-hidden">
               {message.visualization_type === 'table' && (
-                <DataTable data={message.result_data} title={message.chart_config?.title} />
+                <DataTable 
+                  data={message.result_data} 
+                  title={message.chart_config?.title || 'Query Results'} 
+                />
               )}
-              {(message.visualization_type === 'bar_chart' || message.visualization_type === 'pie_chart' || message.visualization_type === 'line_chart') && (
+              {(message.visualization_type === 'bar_chart' || 
+                message.visualization_type === 'pie_chart' || 
+                message.visualization_type === 'line_chart') && (
                 <ChartRenderer
                   type={message.visualization_type}
                   data={message.result_data}
@@ -64,7 +69,10 @@ export default function ChatMessage({ message, isLatest }) {
                 />
               )}
               {message.visualization_type === 'metric' && (
-                <MetricCard data={message.result_data} title={message.chart_config?.title} />
+                <MetricCard 
+                  data={message.result_data} 
+                  title={message.chart_config?.title} 
+                />
               )}
             </div>
           )}

@@ -87,17 +87,6 @@ export async function login(email = 'test@example.com', password = 'password123'
  */
 export async function processQuery(question) {
   try {
-    // Client-side domain check (optional - backend also validates)
-    if (!isBiotechRelated(question)) {
-      return {
-        status: 'rejected',
-        response_text: "I can only answer biotech industry data questions. Please ask something related to biotech companies, clinical trials, drug pipelines, FDA approvals, or biotech financials.",
-        visualization_type: null,
-        result_data: null,
-        generated_sql: null,
-        chart_config: null,
-      };
-    }
 
     // Call the backend API
     const response = await apiClient.post('/chat/query', {

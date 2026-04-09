@@ -44,6 +44,10 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(false);
         localStorage.removeItem('bioquery_token');
         localStorage.removeItem('bioquery_user');
+        setAuthError({
+          type: 'auth_required',
+          message: 'Please log in to continue'
+        });
       }
       
       setIsLoadingAuth(false);

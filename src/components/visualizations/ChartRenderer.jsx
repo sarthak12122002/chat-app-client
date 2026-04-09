@@ -1,135 +1,130 @@
+import { useMemo } from 'react';
 import {
-  BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  BarChart, Bar, PieChart, Pie, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
 } from 'recharts';
 
-const COLORS = [
-  'hsl(252, 85%, 60%)',
-  'hsl(172, 66%, 50%)',
-  'hsl(45, 93%, 58%)',
-  'hsl(340, 75%, 55%)',
-  'hsl(200, 80%, 55%)',
-  'hsl(290, 60%, 55%)',
-  'hsl(15, 80%, 55%)',
-  'hsl(130, 50%, 45%)',
-];
+const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#f97316'];
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="glass rounded-lg px-3 py-2 shadow-lg border border-border/50">
-      <p className="text-xs font-semibold text-foreground mb-1">{label}</p>
-      {payload.map((p, i) => (
-        <p key={i} className="text-xs text-muted-foreground">
-          <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: p.color }} />
-          {p.name}: <span className="font-medium text-foreground">{typeof p.value === 'number' ? p.value.toLocaleString() : p.value}</span>
-        </p>
-      ))}
-    </div>
-  );
-};
+/**
+ * Flatten nested data for charting
+ */
+function flattenData(data) {
+  return data.map(row => {
+    const flattened = {};
+    Object.entries(row).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        // For arrays, use count or first value
+        if (value.length > 0 && typeof value[0] === 'object') {
+          flattened[key] = value.length; // Count of items
+          flattened[`${key}_count`] = value.length;
+        } else {
+          flattened[key] = value.length > 0 ? value[0] : null;
+        }
+      } else if (typeof value === 'object' && value !== null) {
+        flattened[key] = JSON.stringify(value);
+      } else {
+        flattened[key] = value;
+      }
+    });
+    return flattened;
+  });
+}
 
 export default function ChartRenderer({ type, data, config }) {
-  if (!data || data.length === 0) return null;
+  const chartData = useMemo(() => flattenData(data), [data]);
 
-  const xKey = config?.x_key || Object.keys(data[0])[0];
-  const yKey = config?.y_key || Object.keys(data[0])[1];
-  const title = config?.title || '';
+  if (!chartData || chartData.length === 0) return null;
 
-  const wrapper = (children) => (
-    <div className="rounded-xl border border-border/60 bg-card/50 p-5 animate-fade-in">
-      {title && <h3 className="text-sm font-semibold text-foreground mb-4">{title}</h3>}
+  const { x_key, y_key, title } = config || {};
+
+  // Auto-detect keys if not provided
+  const xKey = x_key || Object.keys(chartData[0])[0];
+  const yKey = y_key || Object.keys(chartData[0]).find(k => typeof chartData[0][k] === 'number') || Object.keys(chartData[0])[1];
+
+  const renderChart = () => {
+    switch (type) {
+      case 'bar_chart':
+        return (
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
+            <XAxis dataKey={xKey} className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+            <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '8px',
+                fontSize: '12px'
+              }}
+            />
+            <Legend wrapperStyle={{ fontSize: '12px' }} />
+            <Bar dataKey={yKey} fill="#3b82f6" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        );
+
+      case 'pie_chart':
+        return (
+          <PieChart>
+            <Pie
+              data={chartData}
+              dataKey={yKey}
+              nameKey={xKey}
+              cx="50%"
+              cy="50%"
+              outerRadius={100}
+              label={(entry) => `${entry[xKey]}: ${entry[yKey]}`}
+              labelLine={false}
+            >
+              {chartData.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '8px',
+                fontSize: '12px'
+              }}
+            />
+            <Legend wrapperStyle={{ fontSize: '12px' }} />
+          </PieChart>
+        );
+
+      case 'line_chart':
+        return (
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
+            <XAxis dataKey={xKey} className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+            <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '8px',
+                fontSize: '12px'
+              }}
+            />
+            <Legend wrapperStyle={{ fontSize: '12px' }} />
+            <Line type="monotone" dataKey={yKey} stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
+          </LineChart>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-border/60 overflow-hidden bg-card/50 p-4 animate-fade-in">
+      {title && <h3 className="text-sm font-semibold mb-4 text-foreground">{title}</h3>}
       <ResponsiveContainer width="100%" height={320}>
-        {children}
+        {renderChart()}
       </ResponsiveContainer>
+      <div className="mt-3 text-xs text-muted-foreground text-center">
+        {chartData.length} data points • {xKey} vs {yKey}
+      </div>
     </div>
   );
-
-  if (type === 'bar_chart') {
-    return wrapper(
-      <BarChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-        <XAxis
-          dataKey={xKey}
-          tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-          axisLine={{ stroke: 'hsl(var(--border))' }}
-          tickLine={false}
-          angle={-20}
-          textAnchor="end"
-          height={60}
-        />
-        <YAxis
-          tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-          axisLine={false}
-          tickLine={false}
-          tickFormatter={v => typeof v === 'number' ? v.toLocaleString() : v}
-        />
-        <Tooltip content={<CustomTooltip />} />
-        <Bar dataKey={yKey} radius={[6, 6, 0, 0]} maxBarSize={56}>
-          {data.map((_, i) => (
-            <Cell key={i} fill={COLORS[i % COLORS.length]} />
-          ))}
-        </Bar>
-      </BarChart>
-    );
-  }
-
-  if (type === 'pie_chart') {
-    return wrapper(
-      <PieChart>
-        <Pie
-          data={data}
-          cx="50%"
-          cy="50%"
-          outerRadius={110}
-          innerRadius={55}
-          dataKey={yKey}
-          nameKey={xKey}
-          paddingAngle={3}
-          stroke="none"
-          label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-          labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
-        >
-          {data.map((_, i) => (
-            <Cell key={i} fill={COLORS[i % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip content={<CustomTooltip />} />
-        <Legend
-          wrapperStyle={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}
-        />
-      </PieChart>
-    );
-  }
-
-  if (type === 'line_chart') {
-    return wrapper(
-      <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-        <XAxis
-          dataKey={xKey}
-          tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-          axisLine={{ stroke: 'hsl(var(--border))' }}
-          tickLine={false}
-        />
-        <YAxis
-          tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-          axisLine={false}
-          tickLine={false}
-          tickFormatter={v => typeof v === 'number' ? v.toLocaleString() : v}
-        />
-        <Tooltip content={<CustomTooltip />} />
-        <Line
-          type="monotone"
-          dataKey={yKey}
-          stroke={COLORS[0]}
-          strokeWidth={2.5}
-          dot={{ r: 4, fill: COLORS[0], strokeWidth: 2, stroke: 'hsl(var(--card))' }}
-          activeDot={{ r: 6 }}
-        />
-      </LineChart>
-    );
-  }
-
-  return null;
 }
