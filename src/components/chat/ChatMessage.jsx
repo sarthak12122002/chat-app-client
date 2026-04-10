@@ -1,3 +1,4 @@
+import React from 'react';
 import { User, Bot, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import StreamingText from './StreamingText';
@@ -21,17 +22,29 @@ const CHART_TEMPLATE = `<!DOCTYPE html>
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0; padding: 12px; background: transparent;
+  /* FIX: prevent body itself from creating horizontal scroll */
+  overflow-x: hidden;
 }
 .chart-container {
   background: white; padding: 14px; border-radius: 10px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 12px;
+  position: relative;
 }
 .chart-container h3 { margin: 0 0 10px 0; color: #333; font-size: 15px; }
 .chart-caption { color: #888; font-size: 11px; margin-top: 6px; }
+
+/* FIX: table-container must scroll horizontally, not clip */
+#table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
-th, td { padding: 7px 8px; text-align: left; border-bottom: 1px solid #eee; }
-th { background: #f8f9fa; font-weight: 600; }
-tr:hover { background: #f8f9fa; }
+th, td { padding: 7px 8px; text-align: left; border-bottom: 1px solid #eee; white-space: nowrap; }
+th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; z-index: 1; }
+tr:hover td { background: #f8f9fa; }
+
 .toolbar {
   background: white; padding: 10px 14px; border-radius: 10px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 12px;
@@ -52,7 +65,6 @@ tr:hover { background: #f8f9fa; }
 }
 #z-select-group { display: none; }
 .chart-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
-.chart-container { position: relative; }
 .chart-action-btn {
   background: none; border: none; padding: 5px; color: #999;
   cursor: pointer; display: flex; align-items: center;
@@ -63,10 +75,16 @@ tr:hover { background: #f8f9fa; }
   text-align: center; border-radius: 3px;
 }
 .axis-toggle.on { color: #333; background: #e9ecef; }
+
+/* DataTables overrides */
 .dataTables_wrapper { font-family: inherit; font-size: 12px; }
+/* FIX: DataTables internal scroll wrapper must also allow overflow */
+.dataTables_wrapper .dataTables_scroll,
+.dataTables_scrollBody { overflow-x: auto !important; }
 .dataTables_filter input { border: 1px solid #ddd; border-radius: 4px; padding: 3px 7px; }
 .dataTables_length select { border: 1px solid #ddd; border-radius: 4px; padding: 2px 5px; }
-table.dataTable thead th { background: #f8f9fa; font-weight: 600; border-bottom: 2px solid #ddd; }
+table.dataTable thead th { background: #f8f9fa; font-weight: 600; border-bottom: 2px solid #ddd; white-space: nowrap; }
+table.dataTable tbody td { white-space: nowrap; }
 table.dataTable tbody tr:hover { background: #f8f9fa !important; }
 .dataTables_info, .dataTables_paginate { margin-top: 8px; }
 <\/style>
@@ -199,15 +217,28 @@ function renderTable() {
   const tbody=table.createTBody();
   DATA.forEach(row=>{const tr=tbody.insertRow();COLUMNS.forEach(c=>{const td=tr.insertCell();td.textContent=String(row[c]??'');});});
   container.replaceChildren(table);
-  $('#data-table').DataTable({dom:'frtip',pageLength:20,order:[]});
+  $('#data-table').DataTable({dom:'frtip',pageLength:20,order:[],scrollX:true});
+  // notify parent of updated height
+  setTimeout(notifyHeight, 100);
 }
+
+/* postMessage height sync — lets the React iframe auto-resize */
+function notifyHeight() {
+  try {
+    window.parent.postMessage({ type: '__viz_height__', height: document.body.scrollHeight }, '*');
+  } catch(_) {}
+}
+// re-notify whenever DOM changes (chart switches, pagination, search)
+new MutationObserver(notifyHeight).observe(document.body, { childList:true, subtree:true, attributes:true });
+window.addEventListener('resize', notifyHeight);
+
 initSelects();
 render('table');
 <\/script>
 </body>
 </html>`;
 
-// ─── Helper: build the injected HTML string ───────────────────────────────────
+// ─── Helper ───────────────────────────────────────────────────────────────────
 function buildVisualizationHtml(data, title) {
   if (!data || !data.length) return null;
   const columns = Object.keys(data[0]);
@@ -219,37 +250,31 @@ function buildVisualizationHtml(data, title) {
 
 // ─── Inline Visualization iframe ─────────────────────────────────────────────
 function InlineVisualization({ data, title }) {
+  const [iframeHeight, setIframeHeight] = React.useState(520);
+
+  React.useEffect(() => {
+    function onMessage(e) {
+      if (e.data?.type === '__viz_height__' && e.data.height > 100) {
+        setIframeHeight(e.data.height + 16);
+      }
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
   if (!data || !data.length) return null;
 
-  const htmlContent = buildVisualizationHtml(data, title);
-  const blob = new Blob([htmlContent], { type: 'text/html' });
-  const srcDoc = htmlContent; // use srcDoc to avoid blob URL issues in some environments
-
   return (
-    <div className="w-full rounded-xl overflow-hidden border border-border/50 shadow-sm bg-white">
+    // FIX: no overflow-hidden here — that clips the scrollable iframe content
+    <div className="w-full rounded-xl border border-border/50 shadow-sm bg-white overflow-hidden">
       <iframe
-        srcDoc={srcDoc}
+        srcDoc={buildVisualizationHtml(data, title)}
         title={title || 'Query Results'}
-        className="w-full border-0"
-        style={{ minHeight: '480px', height: '520px' }}
+        className="w-full border-0 block"
+        style={{ height: `${iframeHeight}px` }}
         sandbox="allow-scripts allow-same-origin"
-        scrolling="no"
-        onLoad={(e) => {
-          // Auto-resize iframe to fit content
-          try {
-            const iframe = e.target;
-            const resize = () => {
-              const body = iframe.contentDocument?.body;
-              if (body) {
-                const h = body.scrollHeight;
-                if (h > 100) iframe.style.height = h + 20 + 'px';
-              }
-            };
-            iframe.contentWindow?.addEventListener('resize', resize);
-            setTimeout(resize, 600);
-            setTimeout(resize, 1500); // re-check after charts render
-          } catch (_) {}
-        }}
+        // FIX: scrolling="auto" so the iframe itself can scroll if needed
+        scrolling="auto"
       />
     </div>
   );
@@ -260,7 +285,6 @@ export default function ChatMessage({ message, isLatest }) {
   const isUser = message.role === 'user';
   const isRejected = message.status === 'rejected';
 
-  // Determine if we should show the inline visualization
   const showVisualization =
     !isUser &&
     message.result_data &&
@@ -275,7 +299,12 @@ export default function ChatMessage({ message, isLatest }) {
 
   return (
     <div className={cn("animate-fade-in", isUser ? "flex justify-end" : "flex justify-start")}>
-      <div className={cn("flex gap-3 max-w-[90%] md:max-w-[85%]", isUser && "flex-row-reverse")}>
+      <div className={cn(
+        "flex gap-3",
+        isUser ? "flex-row-reverse max-w-[90%] md:max-w-[85%]" : "max-w-[90%] md:max-w-[85%]",
+        // FIX: widen the bot message container when a visualization is present
+        showVisualization && !isUser && "md:max-w-[95%] max-w-[98%]",
+      )}>
         {/* Avatar */}
         <div className={cn(
           "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-1",
@@ -285,11 +314,7 @@ export default function ChatMessage({ message, isLatest }) {
               ? "bg-destructive/10 text-destructive"
               : "bg-gradient-to-br from-primary/20 to-accent/20 text-primary"
         )}>
-          {isUser
-            ? <User className="h-4 w-4" />
-            : isRejected
-              ? <AlertTriangle className="h-4 w-4" />
-              : <Bot className="h-4 w-4" />}
+          {isUser ? <User className="h-4 w-4" /> : isRejected ? <AlertTriangle className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
         </div>
 
         {/* Content */}
@@ -317,9 +342,10 @@ export default function ChatMessage({ message, isLatest }) {
           {/* SQL Block */}
           {!isUser && message.sql && <SQLBlock sql={message.sql} />}
 
-          {/* Inline Visualization (table / bar / pie / line / etc.) */}
+          {/* Visualization */}
           {showVisualization && (
-            <div className="w-full max-w-full overflow-hidden">
+            // FIX: min-w-0 prevents flex child from overflowing; no overflow-hidden
+            <div className="w-full min-w-0">
               <InlineVisualization
                 data={message.result_data}
                 title={message.chart_config?.title || 'Query Results'}
@@ -327,7 +353,7 @@ export default function ChatMessage({ message, isLatest }) {
             </div>
           )}
 
-          {/* Metric card stays separate */}
+          {/* Metric card */}
           {showMetric && (
             <div className="w-full max-w-full overflow-hidden">
               <MetricCard
