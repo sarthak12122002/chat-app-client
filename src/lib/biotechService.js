@@ -85,14 +85,13 @@ export async function login(email = 'test@example.com', password = 'password123'
 /**
  * Process a query against the backend API
  */
-export async function processQuery(question) {
+export async function processQuery(question, history, session_id) {
   try {
-
     // Call the backend API
     const response = await apiClient.post('/chat/query', {
       question,
-      history,      // Conversation context
-      //session_id: sessionId, // Link to session
+      history,     
+      session_id
     });
 
     return {
@@ -182,8 +181,8 @@ export function getSuggestedQueries() {
   return [
       "Show me the top 5 biotech companies by market cap",
       "How many clinical trials are in each phase?",
-      "What is the total R&D spending across all companies?",
-      "Which therapeutic areas have the most pipeline drugs?",
+      "Which companies have programs targeting Alzheimer’s, and what phases are they in?",
+      "Which longevity companies are based in east Asia?",
       "Which companies are publicly listed vs. privately held?",
       "Show me all active Phase 3 clinical trials",
       "What's the distribution of molecule types in the pipeline?",
