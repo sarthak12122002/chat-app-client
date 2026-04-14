@@ -35,9 +35,14 @@ export default function SessionList({ collapsed, currentSessionId }) {
 
       console.log(data)
       // Sort by most recent first
+     if (Array.isArray(data)) {
       setSessions(data.sort((a, b) => 
         new Date(b.created_at) - new Date(a.created_at)
       ));
+    } else {
+      console.error('Invalid sessions response:', data);
+      setSessions([]);
+    }
     } catch (error) {
       console.error('Failed to load sessions:', error);
     } finally {

@@ -149,9 +149,10 @@ export async function processQuery(question, history, session_id) {
  */
 export async function fetchSessions() {
   try {
-    const response = await apiClient.get('/sessions');
-    
-    return response?.sessions; // Array of { id, title, created_at, query_count }
+    const data = await apiClient.get('/sessions');
+    // data is already response.data from interceptor
+    // Backend returns { sessions: [...] }
+    return data.sessions || [];
   } catch (error) {
     console.error('Failed to fetch sessions:', error);
     return [];
@@ -167,7 +168,7 @@ export async function deleteSession(sessionId) {
   try {
     const response = await apiClient.delete(`/sessions/${sessionId}`);
     
-    return response.ok;
+    return true;
   } catch (error) {
     console.error('Failed to delete session:', error);
     return false;

@@ -50,7 +50,7 @@ export default function Chat() {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('bioquery_token')}`,
         },
       })
         .then(res => {
@@ -75,8 +75,8 @@ export default function Chat() {
               content: q.response_text,
               sql: q.generated_sql,
               visualization_type: q.visualization_type,
-              result_data: q.result_data ? JSON.parse(q.result_data) : null,
-              chart_config: q.chart_config ? JSON.parse(q.chart_config) : null,
+              result_data: q.result_data,
+              chart_config: q.chart_config,
               status: q.status,
             });
           });
@@ -127,10 +127,18 @@ export default function Chat() {
       // NEW: Build conversation history for context-aware responses
       // WHY: Enables follow-up questions like "show me more" or "compare to X"
       // ─────────────────────────────────────────────────────────────────────
-      const history = messages.map(m => ({ 
-        role: m.role, 
-        content: m.content 
-      }));
+      const history = messages.map(m => {
+        if (m.role === 'user') {
+          return { role: 'user', content: m.content };
+        } else {
+          // For assistant, include response text
+          // (Agent mode will have access to previous results via session_id)
+          return { 
+            role: 'assistant', 
+            content: m.content || m.response_text || ''
+          };
+        }
+      });
 
       // ─────────────────────────────────────────────────────────────────────
       // NEW: Create session on first message
@@ -146,7 +154,7 @@ export default function Chat() {
             headers: {
               'Content-Type': 'application/json',
               // Add auth header if needed
-              // 'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Authorization': `Bearer ${localStorage.getItem('bioquery_token')}`,
             },
             body: JSON.stringify({
               title: question.slice(0, 60), // Use first question as title

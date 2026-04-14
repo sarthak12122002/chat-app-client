@@ -340,7 +340,7 @@ export default function ChatMessage({ message, isLatest }) {
           )}
 
           {/* SQL Block */}
-          {!isUser && message.sql && <SQLBlock sql={message.sql} />}
+          {/* {!isUser && message.sql && <SQLBlock sql={message.sql} />} */}
 
           {/* Visualization */}
           {showVisualization && (
